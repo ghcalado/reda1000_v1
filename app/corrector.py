@@ -24,9 +24,14 @@ class ServicoCorrecao:
         logger.info(f"Iniciando PASSO 1: Correcao base. Tema: '{tema}'")
         
         prompt_sistema = build_prompt_correcao()
+        
+        # Recupera exemplos similares do ChromaDB (Redacoes Nota 1000) se existirem
+        exemplos_rag = self.pipeline_rag.recuperar_exemplos_similares(texto_redacao)
+        
         prompt_usuario = (
             f"TEMA DA REDACAO: {tema}\n\n"
-            f"TEXTO DO ALUNO:\n\"\"\"{texto_redacao}\"\"\"\n\n"
+            f"TEXTO DO ALUNO:\n\"\"\"{texto_redacao}\"\"\"\n"
+            f"{exemplos_rag}\n\n"
             "Avalie o texto acima e retorne o JSON estruturado."
         )
 
