@@ -1,16 +1,16 @@
 """
-llm.py — Modulo de abstracao do LLM e orquestracao conversacional.
+llm.py — Modulo de abstracao do LLM e orquestracao conversacional (Groq).
 """
 
 import logging
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 
-from app.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_API_KEY
+from app.config import GROQ_MODEL, LLM_TEMPERATURE, GROQ_API_KEY
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(asctime)s - %(name)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -32,16 +32,16 @@ REGRAS ESTABELECIDAS:
 
 class MotorConversacional:
     def __init__(self) -> None:
-        logger.info("Inicializando o modulo conversacional LLM...")
+        logger.info("Inicializando o modulo conversacional LLM (Groq)...")
         try:
-            self.llm = ChatOpenAI(
-                model=OPENAI_MODEL,
-                temperature=OPENAI_TEMPERATURE,
-                api_key=OPENAI_API_KEY
+            self.llm = ChatGroq(
+                model=GROQ_MODEL,
+                temperature=LLM_TEMPERATURE,
+                api_key=GROQ_API_KEY
             )
         except Exception as e:
-            logger.error("Falha ao instanciar ChatOpenAI.")
-            raise RuntimeError(f"Erro de integracao OpenAI: {e}") from e
+            logger.error("Falha ao instanciar ChatGroq.")
+            raise RuntimeError(f"Erro de integracao Groq: {e}") from e
 
         self.grafo = self._compilar_grafo()
         logger.info("Grafo conversacional compilado com sucesso.")
