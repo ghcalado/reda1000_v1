@@ -30,3 +30,6 @@ wheels/
 
 # MacOS
 .DS_Store
+
+# Bancos de Dados Locais e Arquivos Pesados
+chroma_db/
