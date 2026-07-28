@@ -1,5 +1,5 @@
 """
-config.py — Configuracoes centralizadas do RedacaoAI.
+config.py — Configuracoes centralizadas do RedacaoAI (Groq + HuggingFace).
 """
 
 import os
@@ -8,16 +8,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENAI_API_KEY: Final[str] = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL: Final[str] = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-OPENAI_TEMPERATURE: Final[float] = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))
+GROQ_API_KEY: Final[str] = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL: Final[str] = os.getenv("GROQ_MODEL", "llama3-70b-8192")
+LLM_TEMPERATURE: Final[float] = float(os.getenv("LLM_TEMPERATURE", "0.4"))
 
 MAX_CORRECOES_SISTEMA_DIA: Final[int] = int(os.getenv("MAX_CORRECOES_SISTEMA_DIA", "50"))
 MAX_CORRECOES_USUARIO_DIA: Final[int] = int(os.getenv("MAX_CORRECOES_USUARIO_DIA", "3"))
 
 CHROMA_PATH: Final[str] = os.getenv("CHROMA_PATH", "./chroma_db")
 COLLECTION_NAME: Final[str] = os.getenv("COLLECTION_NAME", "criterios_enem")
-EMBED_MODEL: Final[str] = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+EMBED_MODEL: Final[str] = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
 TOP_K: Final[int] = int(os.getenv("TOP_K", "4"))
 
 BASE_DIR: Final[str] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,7 +25,7 @@ DATA_DIR: Final[str] = os.path.join(BASE_DIR, "data")
 CRITERIA_DIR: Final[str] = os.path.join(DATA_DIR, "criteria")
 
 def validar_configuracoes() -> None:
-    if not OPENAI_API_KEY:
-        raise ValueError("ERRO CRITICO: OPENAI_API_KEY ausente nas variaveis de ambiente.")
+    if not GROQ_API_KEY:
+        raise ValueError("ERRO CRITICO: GROQ_API_KEY ausente nas variaveis de ambiente.")
 
 validar_configuracoes()
