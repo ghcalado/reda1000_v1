@@ -10,6 +10,7 @@ load_dotenv()
 
 GROQ_API_KEY: Final[str] = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL: Final[str] = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_VISION_MODEL: Final[str] = os.getenv("GROQ_VISION_MODEL", "llama-3.2-90b-vision-preview")
 LLM_TEMPERATURE: Final[float] = float(os.getenv("LLM_TEMPERATURE", "0.4"))
 
 MAX_CORRECOES_SISTEMA_DIA: Final[int] = int(os.getenv("MAX_CORRECOES_SISTEMA_DIA", "50"))
