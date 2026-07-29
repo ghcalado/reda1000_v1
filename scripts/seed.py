@@ -87,23 +87,21 @@ def popular_banco_vetorial():
     else:
         logger.warning(f"Diretorio de criterios nao encontrado: {CRITERIA_DIR}")
 
-    # 3. Ingestao das Redacoes Exemplares
-    exemplos_dir = os.path.join(DATA_DIR, "redacoes_nota_1000")
-    os.makedirs(exemplos_dir, exist_ok=True)
-    arquivos_txt = [f for f in os.listdir(exemplos_dir) if f.endswith(".txt")]
-    
-    for arquivo in arquivos_txt:
-        caminho = os.path.join(exemplos_dir, arquivo)
-        with open(caminho, 'r', encoding='utf-8') as f:
-            conteudo = f.read()
-            tema = arquivo.replace(".txt", "").replace("_", " ").title()
-            doc = Document(
-                page_content=f"TEMA: {tema}\n\nTEXTO NOTA 1000:\n{conteudo}",
-                metadata={"tipo": "exemplo_1000", "tema": tema}
-            )
-            documentos_para_ingestao.append(doc)
-            
-    logger.info(f"Carregadas {len(arquivos_txt)} redacoes nota 1000.")
+    # TODO: Ingestao de Redacoes Nota 1000
+    # Quando houver arquivos .txt reais em data/redacoes_nota_1000/,
+    # descomentar o bloco abaixo para ingerir os exemplos no ChromaDB.
+    # exemplos_dir = os.path.join(DATA_DIR, "redacoes_nota_1000")
+    # arquivos_txt = [f for f in os.listdir(exemplos_dir) if f.endswith(".txt")]
+    # for arquivo in arquivos_txt:
+    #     caminho = os.path.join(exemplos_dir, arquivo)
+    #     with open(caminho, 'r', encoding='utf-8') as f:
+    #         conteudo = f.read()
+    #         tema = arquivo.replace(".txt", "").replace("_", " ").title()
+    #         doc = Document(
+    #             page_content=f"TEMA: {tema}\n\nTEXTO NOTA 1000:\n{conteudo}",
+    #             metadata={"tipo": "exemplo_1000", "tema": tema}
+    #         )
+    #         documentos_para_ingestao.append(doc)
 
     if documentos_para_ingestao:
         logger.info(f"Gerando embeddings locais (HuggingFace) para {len(documentos_para_ingestao)} blocos. Aguarde...")

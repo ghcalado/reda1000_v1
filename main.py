@@ -1,5 +1,5 @@
 """
-app.py — Ponto de entrada via terminal para a correcao de redacoes.
+main.py — Ponto de entrada via terminal para a correcao de redacoes.
 """
 
 import sys

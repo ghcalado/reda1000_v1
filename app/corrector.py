@@ -4,13 +4,14 @@ corrector.py — Servico central de Correcao de Redacao.
 
 import json
 import logging
+import time
 from typing import Dict, Any
-
-from langchain_core.messages import SystemMessage, HumanMessage
+from datetime import date
 
 from app.llm import MotorConversacional
 from app.rag import PipelineRAG
 from app.prompts import build_prompt_correcao, SYSTEM_PROMPT_AUTOCRITICA_FEEDBACK
+from app.config import MAX_CORRECOES_USUARIO_DIA
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +20,39 @@ class ServicoCorrecao:
         logger.info("Inicializando Servico de Correcao (com modulo de Autocritica)...")
         self.motor_llm = MotorConversacional()
         self.pipeline_rag = PipelineRAG()
+        self._contagem_diaria: Dict[str, int] = {}
+        self._data_contagem: date = date.today()
 
-    def corrigir_redacao(self, tema: str, texto_redacao: str) -> Dict[str, Any]:
-        logger.info(f"Iniciando PASSO 1: Correcao base. Tema: '{tema}'")
-        
+    def _verificar_limite(self, usuario_id: str = "terminal") -> None:
+        hoje = date.today()
+        if hoje != self._data_contagem:
+            self._contagem_diaria.clear()
+            self._data_contagem = hoje
+
+        uso_atual = self._contagem_diaria.get(usuario_id, 0)
+        if uso_atual >= MAX_CORRECOES_USUARIO_DIA:
+            raise RuntimeError(
+                f"Limite diario de {MAX_CORRECOES_USUARIO_DIA} correcoes atingido. "
+                "Tente novamente amanha."
+            )
+
+    def _registrar_uso(self, usuario_id: str = "terminal") -> None:
+        self._contagem_diaria[usuario_id] = self._contagem_diaria.get(usuario_id, 0) + 1
+        restantes = MAX_CORRECOES_USUARIO_DIA - self._contagem_diaria[usuario_id]
+        logger.info(
+            "Correcao registrada para '%s'. Restam %d correcoes hoje.",
+            usuario_id, restantes
+        )
+
+    def corrigir_redacao(self, tema: str, texto_redacao: str, usuario_id: str = "terminal") -> Dict[str, Any]:
+        self._verificar_limite(usuario_id)
+
+        logger.info("Iniciando correcao via LangGraph. Tema: '%s'", tema)
+        inicio = time.time()
+
         prompt_sistema = build_prompt_correcao()
-        
-        # Recupera exemplos similares do ChromaDB (Redacoes Nota 1000) se existirem
         exemplos_rag = self.pipeline_rag.recuperar_exemplos_similares(texto_redacao)
-        
+
         prompt_usuario = (
             f"TEMA DA REDACAO: {tema}\n\n"
             f"TEXTO DO ALUNO:\n\"\"\"{texto_redacao}\"\"\"\n"
@@ -35,32 +60,18 @@ class ServicoCorrecao:
             "Avalie o texto acima e retorne o JSON estruturado."
         )
 
-        mensagens_passo_1 = [
-            SystemMessage(content=prompt_sistema),
-            HumanMessage(content=prompt_usuario)
-        ]
-
-        resposta_bruta_1 = self.motor_llm.llm.invoke(mensagens_passo_1).content
-        json_limpo_1 = self._limpar_markdown_json(resposta_bruta_1)
-        
-        logger.info("PASSO 1 Concluido. Iniciando PASSO 2: Autocritica e Refinamento...")
-
-        prompt_reflexao = (
-            "Aqui esta o JSON gerado na correcao inicial.\n"
-            f"{json_limpo_1}\n\n"
-            "Revise este JSON aplicando as regras de Autocritica. "
-            "Se houver feedbacks sem citacao, adicione a citacao ou remova a frase generica. "
-            "Retorne APENAS o novo JSON consolidado."
+        resposta_json = self.motor_llm.executar_correcao(
+            prompt_usuario=prompt_usuario,
+            prompt_sistema_correcao=prompt_sistema,
+            prompt_sistema_autocritica=SYSTEM_PROMPT_AUTOCRITICA_FEEDBACK
         )
 
-        mensagens_passo_2 = [
-            SystemMessage(content=SYSTEM_PROMPT_AUTOCRITICA_FEEDBACK),
-            HumanMessage(content=prompt_reflexao)
-        ]
+        duracao = time.time() - inicio
+        logger.info("Correcao finalizada em %.2f segundos.", duracao)
 
-        resposta_bruta_2 = self.motor_llm.llm.invoke(mensagens_passo_2).content
-        
-        return self._extrair_e_validar_json(resposta_bruta_2)
+        resultado = self._extrair_e_validar_json(resposta_json)
+        self._registrar_uso(usuario_id)
+        return resultado
 
     def _limpar_markdown_json(self, texto: str) -> str:
         texto = texto.strip()
@@ -79,7 +90,7 @@ class ServicoCorrecao:
             if "nota_total" not in dicionario or "notas" not in dicionario:
                 raise ValueError("JSON retornado nao contem as chaves obrigatorias.")
             return dicionario
-            
+
         except json.JSONDecodeError as e:
-            logger.error(f"Falha ao realizar parse do JSON apos autocritica:\n{texto_limpo}")
+            logger.error("Falha ao realizar parse do JSON apos autocritica:\n%s", texto_limpo)
             raise RuntimeError(f"O modelo nao retornou um JSON valido. Erro interno: {e}")

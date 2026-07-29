@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROQ_API_KEY: Final[str] = os.environ.get("GROQ_API_KEY", "")
-GROQ_MODEL: Final[str] = os.getenv("GROQ_MODEL", "llama3-70b-8192")
+GROQ_MODEL: Final[str] = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 LLM_TEMPERATURE: Final[float] = float(os.getenv("LLM_TEMPERATURE", "0.4"))
 
 MAX_CORRECOES_SISTEMA_DIA: Final[int] = int(os.getenv("MAX_CORRECOES_SISTEMA_DIA", "50"))
@@ -27,5 +27,3 @@ CRITERIA_DIR: Final[str] = os.path.join(DATA_DIR, "criteria")
 def validar_configuracoes() -> None:
     if not GROQ_API_KEY:
         raise ValueError("ERRO CRITICO: GROQ_API_KEY ausente nas variaveis de ambiente.")
-
-validar_configuracoes()
