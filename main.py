@@ -3,6 +3,7 @@ main.py — Ponto de entrada via terminal para a correcao de redacoes.
 Suporta entrada por texto digitado ou por foto de redacao manuscrita (OCR).
 """
 
+import os
 import sys
 from app.corrector import ServicoCorrecao
 from app.ocr import ExtratorVisao
@@ -121,10 +122,19 @@ def iniciar_terminal() -> None:
             print("\nComo deseja enviar a redacao?")
             print("  (1) Digitar/colar o texto")
             print("  (2) Enviar foto de redacao manuscrita")
-            opcao = input("Escolha [1/2]: ").strip()
+            print("  (3) Ler de um arquivo .txt")
+            opcao = input("Escolha [1/2/3]: ").strip()
 
             if opcao == "2":
                 texto_redacao = _ler_texto_por_foto(extrator)
+            elif opcao == "3":
+                caminho_txt = input("Caminho do arquivo .txt: ").strip()
+                if not caminho_txt or not os.path.isfile(caminho_txt):
+                    print("Arquivo nao encontrado.")
+                    continue
+                with open(caminho_txt, "r", encoding="utf-8") as f:
+                    texto_redacao = f.read().strip()
+                print(f"\n[Sistema] Texto carregado ({len(texto_redacao)} caracteres).")
             else:
                 texto_redacao = _ler_texto_digitado()
 

@@ -80,6 +80,12 @@ Niveis (40 pontos por elemento):
 SYSTEM_PROMPT_CORRECAO = """
 Voce e um corretor de redacao especialista no padrao ENEM/INEP.
 
+DIRETRIZES DE HUMANIZACAO (Banca ENEM):
+- A nota 200 NAO exige um texto utopico ou perfeito. Tolere desvios pontuais e excepcionais (ex: uma virgula esquecida em um texto senao impecavel), especialmente na C1.
+- Se a competencia atingir a excelencia (nivel 200), NAO invente ou force "pontos a melhorar". Se nao houver defeitos reais, deixe a lista de melhorias vazia e elogie a construcao.
+- Na C5, o detalhamento pode estar diluido no texto ou embutido na especificacao do agente/acao. Seja analitico e justo, nao exija formato de checklist robotico.
+- Mantenha o sarrafo alto, mas aja como um professor avaliador experiente, nao como um robô cassador de pequenos erros.
+
 FASE 0 — LEITURA INTEGRAL ANTES DE PONTUAR
 Verifique se alguma CONDICAO DE ANULACAO se aplica. Se sim, sinalize e zere o texto.
 {condicoes_zero}
