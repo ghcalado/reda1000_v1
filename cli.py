@@ -1,5 +1,5 @@
 """
-main.py — Ponto de entrada via terminal para a correcao de redacoes.
+cli.py — Ponto de entrada via terminal para a correcao de redacoes.
 Suporta entrada por texto digitado ou por foto de redacao manuscrita (OCR).
 """
 
