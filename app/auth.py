@@ -3,6 +3,7 @@ import os
 import logging
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from supabase import create_client
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +26,28 @@ def verificar_token(credentials: HTTPAuthorizationCredentials = Depends(security
     
     try:
         jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+        token_alg = jwt.get_unverified_header(token).get("alg")
         
-        if not jwt_secret:
-            logger.warning("ATENCAO: SUPABASE_JWT_SECRET ausente. Validando token sem checar assinatura. (Inseguro para Producao)")
-            payload = jwt.decode(token, options={"verify_signature": False})
-        else:
+        if jwt_secret and token_alg == "HS256":
             payload = jwt.decode(
-                token, 
-                jwt_secret, 
-                algorithms=["HS256"], 
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
                 audience="authenticated"
             )
-            
-        usuario_id = payload.get("sub")
+            usuario_id = payload.get("sub")
+        elif os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_ANON_KEY"):
+            try:
+                supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_ANON_KEY"))
+                user_response = supabase.auth.get_user(token)
+                usuario_id = user_response.user.id if user_response and user_response.user else None
+            except Exception as e:
+                logger.error("Falha ao validar token no Supabase Auth: %s", e)
+                raise HTTPException(status_code=401, detail="Sessao invalida. Faca login novamente.")
+        else:
+            logger.error("ATENCAO: SUPABASE_JWT_SECRET ausente e credentials invalidas.")
+            raise HTTPException(status_code=401, detail="Configuracao de seguranca do servidor incompleta. Token rejeitado.")
+
         if not usuario_id:
             raise HTTPException(status_code=401, detail="Token invalido: Identificacao de usuario ausente.")
             

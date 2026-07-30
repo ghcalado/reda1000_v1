@@ -38,16 +38,7 @@ class PipelineRAG:
             logger.error(f"Falha ao conectar no ChromaDB: {e}")
             self._vectordb_conectado = False
         
-    def recuperar_criterios_oficiais(self, tema: str) -> str:
-        """
-        No padrao ENEM, todas as 5 competencias sao obrigatorias, entao o RAG 
-        retorna o fallback estrutural para garantir que o prompt tenha a rubrica completa.
-        O ChromaDB sera usado primariamente para buscar exemplos de redacoes nota 1000
-        ou regras especificas baseadas no tema.
-        """
-        # Sempre precisamos das 5 competencias, entao unimos os valores estaticos.
-        contexto_base = "\n\n".join(COMPETENCIA_INSTRUCTIONS.values())
-        return contexto_base
+
 
     def recuperar_exemplos_similares(self, texto_redacao: str) -> str:
         """

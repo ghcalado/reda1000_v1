@@ -44,7 +44,7 @@ class MotorConversacional:
                 model=GROQ_MODEL,
                 temperature=LLM_TEMPERATURE,
                 api_key=GROQ_API_KEY
-            )
+            ).bind(response_format={"type": "json_object"})
         except ValueError as e:
             logger.error("Configuracao invalida: %s", e)
             raise RuntimeError(str(e)) from e

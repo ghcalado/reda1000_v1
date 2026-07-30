@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 class DatabaseService:
     def __init__(self) -> None:
         url: str = os.getenv("SUPABASE_URL", "")
-        key: str = os.getenv("SUPABASE_ANON_KEY", "")
+        # Tenta usar a Service Role Key (que ignora RLS), senao cai para a Anon Key
+        key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_ANON_KEY", ""))
         
         if not url or not key:
             logger.warning("Supabase URL ou Key nao encontrados. Banco inativo.")
