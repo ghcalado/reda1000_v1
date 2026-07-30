@@ -13,6 +13,8 @@ from app.rag import PipelineRAG
 from app.prompts import build_prompt_correcao, SYSTEM_PROMPT_AUTOCRITICA_FEEDBACK
 from app.config import MAX_CORRECOES_USUARIO_DIA
 
+from app.database import DatabaseService
+
 logger = logging.getLogger(__name__)
 
 class ServicoCorrecao:
@@ -20,29 +22,14 @@ class ServicoCorrecao:
         logger.info("Inicializando Servico de Correcao (com modulo de Autocritica)...")
         self.motor_llm = MotorConversacional()
         self.pipeline_rag = PipelineRAG()
-        self._contagem_diaria: Dict[str, int] = {}
-        self._data_contagem: date = date.today()
+        self.db = DatabaseService()
 
-    def _verificar_limite(self, usuario_id: str = "terminal") -> None:
-        hoje = date.today()
-        if hoje != self._data_contagem:
-            self._contagem_diaria.clear()
-            self._data_contagem = hoje
-
-        uso_atual = self._contagem_diaria.get(usuario_id, 0)
-        if uso_atual >= MAX_CORRECOES_USUARIO_DIA:
-            raise RuntimeError(
-                f"Limite diario de {MAX_CORRECOES_USUARIO_DIA} correcoes atingido. "
-                "Tente novamente amanha."
-            )
-
-    def _registrar_uso(self, usuario_id: str = "terminal") -> None:
-        self._contagem_diaria[usuario_id] = self._contagem_diaria.get(usuario_id, 0) + 1
-        restantes = MAX_CORRECOES_USUARIO_DIA - self._contagem_diaria[usuario_id]
-        logger.info(
-            "Correcao registrada para '%s'. Restam %d correcoes hoje.",
-            usuario_id, restantes
-        )
+    def _verificar_limite(self, usuario_id: str) -> None:
+        if self.db.cliente:
+            self.db.verificar_limite_diario(usuario_id)
+        else:
+            # Fallback (nao faz nada) se o banco estiver desativado
+            logger.warning("Banco offline. Rate limit ignorado.")
 
     def corrigir_redacao(self, tema: str, texto_redacao: str, usuario_id: str = "terminal") -> Dict[str, Any]:
         self._verificar_limite(usuario_id)
@@ -70,7 +57,11 @@ class ServicoCorrecao:
         logger.info("Correcao finalizada em %.2f segundos.", duracao)
 
         resultado = self._extrair_e_validar_json(resposta_json)
-        self._registrar_uso(usuario_id)
+        
+        # Salva o resultado no banco (se estiver online)
+        if self.db.cliente:
+            self.db.salvar_redacao(usuario_id, tema, texto_redacao, resultado)
+            
         return resultado
 
     def _limpar_markdown_json(self, texto: str) -> str:
