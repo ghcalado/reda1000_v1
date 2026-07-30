@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reda1000 - Correção de Redação</title>
+    
+    <!-- Fontes Premium: Cabinet Grotesk (Títulos) e DM Sans (Corpo) -->
+    <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+    
+    <!-- Icones (Phosphor Icons) para um visual limpo -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+
+    <!-- Overlay de Autenticação -->
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <div class="auth-header">
+                <img src="OJddi-removebg-preview.png" class="auth-logo" alt="Reda1000 Logo">
+                <h2 id="auth-title">Bem-vindo(a)</h2>
+                <p id="auth-subtitle">Faça login para corrigir suas redações</p>
+            </div>
+            <form id="auth-form" class="auth-form" novalidate>
+                <div class="input-group">
+                    <label for="auth-email">E-mail</label>
+                    <input type="email" id="auth-email" required placeholder="seu@email.com">
+                </div>
+                <div class="input-group">
+                    <label for="auth-pass">Senha (mínimo 6 caracteres)</label>
+                    <input type="password" id="auth-pass" required placeholder="••••••••" minlength="6">
+                </div>
+                <div id="auth-error" class="auth-error hidden"></div>
+                <div class="auth-actions">
+                    <button type="button" id="btn-auth-submit" class="btn-primary auth-btn" style="width: 100%;">Entrar</button>
+                    <div style="text-align: center; margin-top: 12px; font-size: 14px;">
+                        <a href="#" id="toggle-auth-mode" style="color: var(--cyan); text-decoration: none; font-weight: 500;">Não tem conta? Cadastre-se</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-container">
+        
+        <!-- Sidebar Esquerda -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <img src="OJddi-removebg-preview.png" class="sidebar-logo" alt="Logo Reda1000">
+                </div>
+                <button class="btn-icon new-chat" title="Nova Redação">
+                    <i class="ph ph-plus"></i>
+                </button>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="history-section">
+                    <h3 class="section-label">Recentes</h3>
+                    <ul class="history-list" id="history-list">
+                        <!-- Itens do historico serao injetados via JS -->
+                        <div style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 12px;">Carregando histórico...</div>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar">
+                        <i class="ph ph-user"></i>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name" id="display-user-name">Carregando...</span>
+                        <span class="user-plan">Plano Grátis</span>
+                    </div>
+                </div>
+                <button id="btn-logout" class="btn-ghost" style="width: 100%; margin-top: 12px; font-size: 13px; color: #e74c3c; border-color: rgba(231,76,60,0.2);">Sair</button>
+            </div>
+        </aside>
+
+        <!-- Area Principal de Chat -->
+        <main class="chat-area">
+            
+            <header class="chat-header">
+                <button class="btn-icon menu-toggle" id="menu-toggle">
+                    <i class="ph ph-list"></i>
+                </button>
+                <div class="chat-title">Correção Atual</div>
+                <div class="header-actions">
+                    <button class="btn-ghost">Exportar PDF</button>
+                </div>
+            </header>
+
+            <!-- Container de Mensagens -->
+            <div class="messages-container" id="messages-container">
+                <!-- Welcome Message is handled by app.js initially -->            </div>
+
+            <!-- Area de Input de Texto -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <!-- Campo de input de Tema -->
+                    <input type="text" id="tema-input" class="tema-input" placeholder="Tema da redação (opcional)" autocomplete="off">
+                    
+                    <div class="textarea-container">
+                        <button class="btn-icon attach-btn" id="attach-btn" title="Anexar foto da redação">
+                            <i class="ph ph-paperclip"></i>
+                        </button>
+                        <input type="file" id="file-upload" accept="image/*" style="display: none;">
+                        
+                        <textarea id="chat-input" placeholder="Digite sua redação ou cole o texto aqui..." rows="1"></textarea>
+                        
+                        <button class="btn-icon send-btn" id="send-btn" title="Enviar redação">
+                            <i class="ph ph-paper-plane-right"></i>
+                        </button>
+                    </div>
+                    <!-- Preview de imagem -->
+                    <div id="image-preview-container" class="image-preview-container hidden">
+                        <img id="image-preview" src="" alt="Preview">
+                        <button class="btn-icon remove-image" id="remove-image">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-footer">
+                    Reda1000 utiliza IA avançada e pode cometer erros. Revise sempre sua nota.
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+</body>
+</html>
