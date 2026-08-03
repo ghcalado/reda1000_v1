@@ -1,7 +1,3 @@
-"""
-server.py — Ponto de entrada do backend Web (FastAPI) para o RedacaoAI.
-Execute com: uvicorn server:app --reload
-"""
 
 import os
 from fastapi import FastAPI
@@ -36,9 +32,23 @@ from fastapi.responses import FileResponse
 
 @app.get("/health")
 async def health_check():
+    # Reporta o status real dos servicos internos (LLM/OCR), que antes falhavam
+    # silenciosamente na inicializacao: o processo subia normalmente mesmo sem
+    # GROQ_API_KEY configurada, e so os endpoints de correcao retornavam 503,
+    # sem nenhum sinal visivel em /health.
+    from app.api import routes as rotas
+
+    servicos_ok = rotas.servico_correcao is not None and rotas.extrator_visao is not None
+
     return {
-        "status": "online",
-        "message": "O motor RedacaoAI está ativo e aguardando submissões.",
+        "status": "online" if servicos_ok else "degraded",
+        "message": "O motor RedacaoAI está ativo e aguardando submissões." if servicos_ok
+                   else "O servidor está de pé, mas os serviços de correção/OCR falharam "
+                        "ao iniciar (verifique GROQ_API_KEY nas variáveis de ambiente).",
+        "servicos": {
+            "correcao": rotas.servico_correcao is not None,
+            "ocr": rotas.extrator_visao is not None,
+        },
         "modelos": {
             "texto": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
             "visao": os.getenv("GROQ_VISION_MODEL", "llama-3.2-90b-vision-preview")

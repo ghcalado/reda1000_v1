@@ -43,7 +43,9 @@ class MotorConversacional:
             self.llm = ChatGroq(
                 model=GROQ_MODEL,
                 temperature=LLM_TEMPERATURE,
-                api_key=GROQ_API_KEY
+                api_key=GROQ_API_KEY,
+                timeout=60,       # evita requisicoes penduradas indefinidamente
+                max_retries=2
             ).bind(response_format={"type": "json_object"})
         except ValueError as e:
             logger.error("Configuracao invalida: %s", e)

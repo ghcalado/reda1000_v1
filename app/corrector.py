@@ -26,6 +26,9 @@ class ServicoCorrecao:
 
     def _verificar_limite(self, usuario_id: str) -> None:
         if self.db.cliente:
+            # Verifica primeiro o limite GLOBAL do sistema (protecao de custo),
+            # que antes existia apenas em config/.env e nunca era checado de fato.
+            self.db.verificar_limite_sistema()
             self.db.verificar_limite_diario(usuario_id)
         else:
             # Fallback (nao faz nada) se o banco estiver desativado

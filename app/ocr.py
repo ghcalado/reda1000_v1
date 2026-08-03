@@ -32,7 +32,7 @@ class ExtratorVisao:
     def __init__(self) -> None:
         logger.info("Inicializando modulo de visao (Groq Vision)...")
         validar_configuracoes()
-        self.client = Groq(api_key=GROQ_API_KEY)
+        self.client = Groq(api_key=GROQ_API_KEY, timeout=60, max_retries=2)
         self.modelo = GROQ_VISION_MODEL
 
     def _codificar_imagem(self, caminho_imagem: str) -> str:

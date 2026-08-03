@@ -16,8 +16,19 @@ class NotasDetalhadas(BaseModel):
     C5: NotaCompetencia
 
 class RedacaoRequest(BaseModel):
-    tema: str = Field(..., description="Tema oficial da redação (ex: Desafios da IA no Brasil)")
-    texto_redacao: str = Field(..., description="O texto integral da redação do aluno")
+    tema: str = Field(
+        ...,
+        min_length=3,
+        max_length=300,
+        description="Tema oficial da redação (ex: Desafios da IA no Brasil)"
+    )
+    texto_redacao: str = Field(
+        ...,
+        min_length=1,
+        max_length=15000,
+        description="O texto integral da redação do aluno (máx. ~15000 caracteres, "
+                     "muito acima do esperado para uma redação ENEM real)"
+    )
 
 class RedacaoResponse(BaseModel):
     nota_total: int

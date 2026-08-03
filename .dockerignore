@@ -1,0 +1,30 @@
+# Segredos - NUNCA devem ir para dentro da imagem
+.env
+.env.*
+!.env.example
+
+# Ambientes virtuais e cache Python
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Banco vetorial local (deve ser um volume, não fazer parte da imagem)
+chroma_db/
+
+# Git e docs de dev
+.git/
+.gitignore
+.github/
+tests/
+*.md
+
+# Outros
+.DS_Store
+.vscode/
+.idea/
