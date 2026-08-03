@@ -1,10 +1,12 @@
 import tempfile
 import os
+import re
 import logging
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from app.api.schemas import RedacaoRequest, RedacaoResponse, FotoCorrecaoResponse
 from app.corrector import ServicoCorrecao
-from app.ocr import ExtratorVisao
+from app.ocr import ExtratorVisao, EXTENSOES_SUPORTADAS
 from app.auth import verificar_token
 
 logger = logging.getLogger(__name__)
@@ -33,8 +35,16 @@ async def corrigir_texto(request: RedacaoRequest, usuario_id: str = Depends(veri
     try:
         resultado_json = servico_correcao.corrigir_redacao(request.tema, request.texto_redacao, usuario_id)
         return resultado_json
+    except RuntimeError as e:
+        # Erros esperados (ex: limite diário atingido) podem ser expostos ao usuário.
+        raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro interno ao processar redação: {str(e)}")
+        # Nunca expor detalhes internos (stack trace, mensagens de libs) ao cliente.
+        logger.exception("Erro interno ao processar redacao de texto: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao processar a redação. Tente novamente em instantes."
+        )
 
 @router.post("/corrigir/foto", response_model=FotoCorrecaoResponse)
 async def corrigir_foto(
@@ -48,10 +58,21 @@ async def corrigir_foto(
     if servico_correcao is None or extrator_visao is None:
         raise HTTPException(status_code=503, detail="Servico de correcao indisponivel. Verifique a GROQ_API_KEY.")
 
+    # Sanitiza a extensao do arquivo enviado: nunca confiar no nome bruto do cliente
+    # (poderia conter "/", ".." ou outros caracteres para escapar do diretorio temporario).
+    extensao_original = Path(arquivo.filename or "").suffix.lower()
+    extensao_segura = re.sub(r"[^a-z0-9.]", "", extensao_original)
+    if extensao_segura not in EXTENSOES_SUPORTADAS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Formato de arquivo não suportado. Use: {', '.join(sorted(EXTENSOES_SUPORTADAS))}"
+        )
+
     tmp_path = None
     try:
-        # Salva o arquivo temporariamente para a Groq Vision conseguir ler o path local
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{arquivo.filename}") as tmp:
+        # Salva o arquivo temporariamente para a Groq Vision conseguir ler o path local.
+        # O sufixo usado é controlado (apenas a extensão validada), nunca o nome bruto do cliente.
+        with tempfile.NamedTemporaryFile(delete=False, suffix=extensao_segura) as tmp:
             conteudo = await arquivo.read()
             tmp.write(conteudo)
             tmp_path = tmp.name
@@ -72,8 +93,14 @@ async def corrigir_foto(
         
     except HTTPException:
         raise
+    except RuntimeError as e:
+        raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro no processamento da foto: {str(e)}")
+        logger.exception("Erro no processamento da foto: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao processar a imagem enviada. Tente novamente em instantes."
+        )
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
