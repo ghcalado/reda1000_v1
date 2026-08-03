@@ -25,7 +25,16 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-def popular_banco_vetorial():
+def popular_banco_vetorial(recriar: bool = True):
+    """
+    Popula o ChromaDB com os criterios do ENEM.
+
+    Args:
+        recriar: se True (padrao), apaga a colecao existente antes de reingerir.
+                 Isso evita duplicar embeddings quando o script e executado mais
+                 de uma vez (bug original: rodar o seed.py duas vezes duplicava
+                 todo o conteudo indefinidamente).
+    """
     logger.info("Inicializando Pipeline de Ingestao do ChromaDB com HuggingFace...")
     
     embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
@@ -35,6 +44,18 @@ def popular_banco_vetorial():
         embedding_function=embeddings,
         persist_directory=CHROMA_PATH
     )
+
+    if recriar:
+        try:
+            existentes = vector_store.get()["ids"]
+            if existentes:
+                logger.info(
+                    "Removendo %d documentos existentes antes de reingerir "
+                    "(evita duplicatas).", len(existentes)
+                )
+                vector_store.delete(ids=existentes)
+        except Exception as e:
+            logger.warning("Nao foi possivel limpar a colecao antes de reingerir: %s", e)
 
     documentos_para_ingestao = []
     
@@ -111,4 +132,7 @@ def popular_banco_vetorial():
         logger.warning("Nenhum documento encontrado para ingestao.")
         
 if __name__ == "__main__":
-    popular_banco_vetorial()
+    import sys
+    # Uso: python scripts/seed.py --append   (para NAO limpar a colecao antes)
+    recriar = "--append" not in sys.argv
+    popular_banco_vetorial(recriar=recriar)
