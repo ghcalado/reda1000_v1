@@ -361,7 +361,7 @@ Reda1000 implements multiple layers of production-grade security:
 
 ## Contributing
 
-This is a portfolio project by [Higgs Technology & Development](https://github.com/HiggsTech). Suggestions and issues are welcome — open an [issue](https://github.com/ghcalado/reda1000_v1/issues) describing the problem or idea before submitting a PR.
+This is a portfolio project by [Ghabriel Calado]([https://github.com/ghcalado]). Suggestions and issues are welcome — open an [issue](https://github.com/ghcalado/reda1000_v1/issues) describing the problem or idea before submitting a PR.
 
 ## License
 
