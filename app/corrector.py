@@ -6,12 +6,10 @@ import json
 import logging
 import time
 from typing import Dict, Any
-from datetime import date
 
 from app.llm import MotorConversacional
 from app.rag import PipelineRAG
 from app.prompts import build_prompt_correcao, SYSTEM_PROMPT_AUTOCRITICA_FEEDBACK
-from app.config import MAX_CORRECOES_USUARIO_DIA
 
 from app.database import DatabaseService
 
@@ -26,12 +24,9 @@ class ServicoCorrecao:
 
     def _verificar_limite(self, usuario_id: str) -> None:
         if self.db.cliente:
-            # Verifica primeiro o limite GLOBAL do sistema (protecao de custo),
-            # que antes existia apenas em config/.env e nunca era checado de fato.
-            self.db.verificar_limite_sistema()
             self.db.verificar_limite_diario(usuario_id)
+            self.db.verificar_limite_sistema()
         else:
-            # Fallback (nao faz nada) se o banco estiver desativado
             logger.warning("Banco offline. Rate limit ignorado.")
 
     def corrigir_redacao(self, tema: str, texto_redacao: str, usuario_id: str = "terminal") -> Dict[str, Any]:
@@ -61,7 +56,6 @@ class ServicoCorrecao:
 
         resultado = self._extrair_e_validar_json(resposta_json)
         
-        # Salva o resultado no banco (se estiver online)
         if self.db.cliente:
             self.db.salvar_redacao(usuario_id, tema, texto_redacao, resultado)
             

@@ -1,17 +1,39 @@
-
 import os
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+
 from app.api.routes import router
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.corrector import ServicoCorrecao
+    from app.ocr import ExtratorVisao
+
+    app.state.servico_correcao = None
+    app.state.extrator_visao = None
+
+    try:
+        app.state.servico_correcao = ServicoCorrecao()
+        app.state.extrator_visao = ExtratorVisao()
+    except Exception as e:
+        logger.error("Falha na inicializacao dos servicos: %s", e)
+
+    yield
+
 
 app = FastAPI(
     title="RedaçãoAI API",
     description="Motor de correção de redações ENEM com LangGraph e LLaMA 3",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Configuração CORS Segura
-# Permite acesso do localhost no desenvolvimento. Em producao, exige o dominio oficial.
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8000")
 origens_permitidas = [frontend_url]
 if frontend_url != "http://localhost:8000":
@@ -25,65 +47,87 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registra as rotas (inclui o /api/v1/corrigir/texto e /api/v1/corrigir/foto)
 app.include_router(router)
 
-from fastapi.responses import FileResponse
 
 @app.get("/health")
 async def health_check():
-    # Reporta o status real dos servicos internos (LLM/OCR), que antes falhavam
-    # silenciosamente na inicializacao: o processo subia normalmente mesmo sem
-    # GROQ_API_KEY configurada, e so os endpoints de correcao retornavam 503,
-    # sem nenhum sinal visivel em /health.
-    from app.api import routes as rotas
 
-    servicos_ok = rotas.servico_correcao is not None and rotas.extrator_visao is not None
+    servicos_ok = (
+        app.state.servico_correcao is not None
+        and app.state.extrator_visao is not None
+    )
 
     return {
         "status": "online" if servicos_ok else "degraded",
-        "message": "O motor RedacaoAI está ativo e aguardando submissões." if servicos_ok
-                   else "O servidor está de pé, mas os serviços de correção/OCR falharam "
-                        "ao iniciar (verifique GROQ_API_KEY nas variáveis de ambiente).",
+        "message": (
+            "O motor RedacaoAI está ativo e aguardando submissões."
+            if servicos_ok
+            else "O servidor está de pé, mas os serviços de correção/OCR falharam "
+            "ao iniciar (verifique GROQ_API_KEY nas variáveis de ambiente)."
+        ),
         "servicos": {
-            "correcao": rotas.servico_correcao is not None,
-            "ocr": rotas.extrator_visao is not None,
+            "correcao": app.state.servico_correcao is not None,
+            "ocr": app.state.extrator_visao is not None,
         },
         "modelos": {
             "texto": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-            "visao": os.getenv("GROQ_VISION_MODEL", "llama-3.2-90b-vision-preview")
-        }
+            "visao": os.getenv("GROQ_VISION_MODEL", "llama-3.2-90b-vision-preview"),
+        },
     }
 
-# Servindo o Frontend de forma explicita (Evita erro 404 do StaticFiles puro)
+
 @app.get("/")
 async def serve_index():
-    response = FileResponse("frontend/index.html")
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    supabase_anon_key = os.getenv("SUPABASE_ANON_KEY", "")
+
+    with open("frontend/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
+    meta_tags = (
+        f'<meta name="supabase-url" content="{supabase_url}">\n'
+        f'    <meta name="supabase-anon-key" content="{supabase_anon_key}">'
+    )
+    html = html.replace("</head>", f"    {meta_tags}\n</head>", 1)
+
+    response = HTMLResponse(content=html)
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
 
-@app.get("/{file_name}")
-async def serve_file(file_name: str):
-    # Protecao contra path traversal
-    if ".." in file_name or "/" in file_name:
-        return FileResponse("frontend/index.html")
-        
-    if os.path.exists(f"frontend/{file_name}"):
-        media_type = "text/html"
-        if file_name.endswith(".js"):
-            media_type = "application/javascript"
-        elif file_name.endswith(".css"):
-            media_type = "text/css"
-            
-        response = FileResponse(f"frontend/{file_name}", media_type=media_type)
+
+@app.get("/{file_path:path}")
+async def serve_static(file_path: str):
+    if ".." in file_path:
+        response = FileResponse("frontend/index.html")
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return response
-    
+
+    candidate = os.path.join("frontend", file_path)
+    if os.path.isfile(candidate):
+        ext = os.path.splitext(file_path)[1].lower()
+        mime_map = {
+            ".js": "application/javascript",
+            ".css": "text/css",
+            ".html": "text/html",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+        }
+        media_type = mime_map.get(ext, "application/octet-stream")
+        response = FileResponse(candidate, media_type=media_type)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
     response = FileResponse("frontend/index.html")
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return response
+
 
 if __name__ == "__main__":
     import uvicorn

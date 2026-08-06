@@ -1,10 +1,8 @@
-
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import routes as routes_module
 from app.auth import verificar_token
 from server import app
 
@@ -13,7 +11,6 @@ USUARIO_TESTE = "usuario-teste-123"
 
 @pytest.fixture(autouse=True)
 def _override_auth():
-    """Todas as rotas exigem token; para os testes, sempre 'autentica' o mesmo usuário."""
     app.dependency_overrides[verificar_token] = lambda: USUARIO_TESTE
     yield
     app.dependency_overrides.pop(verificar_token, None)
@@ -25,22 +22,27 @@ def client() -> TestClient:
 
 
 @pytest.fixture
-def servico_mock(monkeypatch, resultado_correcao_valido):
-    """Substitui o singleton global `servico_correcao` do módulo de rotas por um mock."""
+def servico_mock(resultado_correcao_valido):
     mock = MagicMock()
     mock.corrigir_redacao.return_value = resultado_correcao_valido
     mock.db.cliente = MagicMock()
     mock.db.buscar_historico.return_value = []
-    monkeypatch.setattr(routes_module, "servico_correcao", mock)
-    return mock
+
+    original = app.state.__dict__.get("servico_correcao")
+    app.state.servico_correcao = mock
+    yield mock
+    app.state.servico_correcao = original
 
 
 @pytest.fixture
-def extrator_mock(monkeypatch):
+def extrator_mock():
     mock = MagicMock()
     mock.transcrever.return_value = "Texto transcrito da imagem."
-    monkeypatch.setattr(routes_module, "extrator_visao", mock)
-    return mock
+
+    original = app.state.__dict__.get("extrator_visao")
+    app.state.extrator_visao = mock
+    yield mock
+    app.state.extrator_visao = original
 
 
 class TestCorrigirTexto:
@@ -52,16 +54,19 @@ class TestCorrigirTexto:
         assert resposta.status_code == 200
         assert resposta.json()["nota_total"] == 880
 
-    def test_servico_indisponivel_retorna_503(self, client, monkeypatch):
-        monkeypatch.setattr(routes_module, "servico_correcao", None)
-        resposta = client.post(
-            "/api/v1/corrigir/texto",
-            json={"tema": "Tema válido", "texto_redacao": "Um texto de redação qualquer."},
-        )
-        assert resposta.status_code == 503
+    def test_servico_indisponivel_retorna_503(self, client):
+        original = app.state.__dict__.get("servico_correcao")
+        app.state.servico_correcao = None
+        try:
+            resposta = client.post(
+                "/api/v1/corrigir/texto",
+                json={"tema": "Tema válido", "texto_redacao": "Um texto de redação qualquer."},
+            )
+            assert resposta.status_code == 503
+        finally:
+            app.state.servico_correcao = original
 
     def test_texto_vazio_retorna_422_validacao(self, client, servico_mock):
-        # Pydantic (min_length=1) já barra antes de chegar na lógica de negócio.
         resposta = client.post(
             "/api/v1/corrigir/texto",
             json={"tema": "Tema válido", "texto_redacao": ""},
@@ -84,8 +89,6 @@ class TestCorrigirTexto:
         assert resposta.status_code == 429
 
     def test_erro_interno_nao_vaza_detalhes(self, client, servico_mock):
-        """Regressão do bug de vazamento: erros genéricos não devem expor a
-        exceção interna crua na resposta ao cliente."""
         servico_mock.corrigir_redacao.side_effect = ValueError("segredo interno da stack trace")
         resposta = client.post(
             "/api/v1/corrigir/texto",
@@ -116,14 +119,11 @@ class TestCorrigirFoto:
         assert resposta.status_code == 400
 
     def test_nome_de_arquivo_malicioso_nao_quebra_e_e_rejeitado(self, client, servico_mock, extrator_mock):
-        """Regressão do bug de path traversal: nomes de arquivo com '/' ou '..'
-        não devem ser usados como sufixo do arquivo temporário."""
         resposta = client.post(
             "/api/v1/corrigir/foto",
             data={"tema": "Tema válido"},
             files={"arquivo": ("../../etc/passwd.jpg", b"fake-jpeg-bytes", "image/jpeg")},
         )
-        # Extensao .jpg e valida, entao deve seguir o fluxo normal (nao 500/crash)
         assert resposta.status_code == 200
         extrator_mock.transcrever.assert_called_once()
 
@@ -150,6 +150,14 @@ class TestHistorico:
         resposta = client.get("/api/v1/historico")
         assert resposta.status_code == 503
 
+    def test_limite_invalido_retorna_422(self, client, servico_mock):
+        resposta = client.get("/api/v1/historico?limite=0")
+        assert resposta.status_code == 422
+
+    def test_limite_muito_alto_retorna_422(self, client, servico_mock):
+        resposta = client.get("/api/v1/historico?limite=101")
+        assert resposta.status_code == 422
+
 
 class TestHealthCheck:
     def test_health_reflete_servicos_disponiveis(self, client, servico_mock, extrator_mock):
@@ -157,9 +165,15 @@ class TestHealthCheck:
         assert resposta.status_code == 200
         assert resposta.json()["status"] == "online"
 
-    def test_health_reporta_degraded_sem_servicos(self, client, monkeypatch):
-        monkeypatch.setattr(routes_module, "servico_correcao", None)
-        monkeypatch.setattr(routes_module, "extrator_visao", None)
-        resposta = client.get("/health")
-        assert resposta.status_code == 200
-        assert resposta.json()["status"] == "degraded"
+    def test_health_reporta_degraded_sem_servicos(self, client):
+        original_correcao = app.state.__dict__.get("servico_correcao")
+        original_visao = app.state.__dict__.get("extrator_visao")
+        app.state.servico_correcao = None
+        app.state.extrator_visao = None
+        try:
+            resposta = client.get("/health")
+            assert resposta.status_code == 200
+            assert resposta.json()["status"] == "degraded"
+        finally:
+            app.state.servico_correcao = original_correcao
+            app.state.extrator_visao = original_visao

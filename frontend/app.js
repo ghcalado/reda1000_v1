@@ -1,7 +1,7 @@
 const API_URL = "/api/v1";
 
-const SUPABASE_URL = "https://jfivjloqhtmwuidrgveu.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmaXZqbG9xaHRtd3VpZHJndmV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MzEyMjUsImV4cCI6MjEwMTAwNzIyNX0.7nOWy2KDtPCddA3NmB8LeldrKrZmewczXf9oUdt-ac4";
+const SUPABASE_URL = document.querySelector('meta[name="supabase-url"]')?.content || "";
+const SUPABASE_ANON_KEY = document.querySelector('meta[name="supabase-anon-key"]')?.content || "";
 
 let supabaseClient;
 try {
@@ -126,7 +126,8 @@ btnAuthSubmit.addEventListener("click", async (e) => {
         return;
     }
     
-    if (!email.includes("@") || !email.includes(".")) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailRegex.test(email)) {
         showAuthError("Por favor, digite um e-mail válido (ex: aluno@gmail.com).");
         return;
     }
@@ -437,6 +438,16 @@ function appendLoading() {
     const div = document.createElement("div");
     div.className = "message system-message";
     div.id = id;
+
+    const etapas = [
+        "Lendo a redação e identificando o tema...",
+        "Consultando critérios oficiais do INEP...",
+        "Avaliando as 5 competências (C1 a C5)...",
+        "Aplicando autocrítica e revisando notas...",
+        "Finalizando o relatório de correção...",
+    ];
+    let etapaIdx = 0;
+
     div.innerHTML = `
         <div class="message-avatar sys-avatar"><img src="VlwRe-removebg-preview.png" class="mascot-avatar" alt="Reda1000"></div>
         <div class="message-content">
@@ -445,17 +456,29 @@ function appendLoading() {
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
             </div>
-            <span style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">Lendo matriz do INEP e avaliando...</span>
+            <span id="${id}-label" style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">${etapas[0]}</span>
         </div>
     `;
     messagesContainer.appendChild(div);
     scrollToBottom();
+
+    const intervalId = setInterval(() => {
+        etapaIdx = (etapaIdx + 1) % etapas.length;
+        const label = document.getElementById(`${id}-label`);
+        if (label) label.textContent = etapas[etapaIdx];
+        else clearInterval(intervalId);
+    }, 5000);
+
+    div._clearProgress = () => clearInterval(intervalId);
     return id;
 }
 
 function removeMessage(id) {
     const el = document.getElementById(id);
-    if (el) el.remove();
+    if (el) {
+        if (el._clearProgress) el._clearProgress();
+        el.remove();
+    }
 }
 
 function appendErrorMessage(errorMsg) {

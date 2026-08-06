@@ -28,7 +28,7 @@ COPY frontend/ ./frontend/
 COPY data/ ./data/
 COPY scripts/ ./scripts/
 
-RUN GROQ_API_KEY=build-time-placeholder python scripts/seed.py
+RUN python scripts/seed.py --skip-if-populated
 
 # Roda como usuário não-root por segurança
 RUN useradd --create-home --uid 1000 appuser \

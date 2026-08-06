@@ -7,14 +7,11 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-# Chave usada para agrupar a contagem GLOBAL do sistema na mesma tabela de
-# controle por-usuario (ver scripts/sql/rate_limit.sql).
 _CHAVE_LIMITE_SISTEMA = "__sistema__"
 
 class DatabaseService:
     def __init__(self) -> None:
         url: str = os.getenv("SUPABASE_URL", "")
-        # Tenta usar a Service Role Key (que ignora RLS), senao cai para a Anon Key
         key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_ANON_KEY", ""))
         
         if not url or not key:
@@ -24,7 +21,7 @@ class DatabaseService:
             try:
                 self.cliente: Optional[Client] = create_client(url, key)
             except Exception as e:
-                logger.error(f"Erro ao inicializar cliente Supabase: {e}")
+                logger.error("Erro ao inicializar cliente Supabase: %s", e)
                 self.cliente = None
 
     def salvar_redacao(self, usuario_id: str, tema: str, texto: str, resultado: Dict[str, Any]) -> None:
@@ -80,18 +77,19 @@ class DatabaseService:
             raise RuntimeError("Nao foi possivel verificar seu limite de uso. Tente novamente.")
 
     def _verificar_limite_fallback(self, chave: str, limite: int) -> None:
-        """
-        Fallback NAO-ATOMICO (mantido apenas para bancos sem a migracao SQL aplicada).
-        Sujeito a race condition entre requisicoes concorrentes: usar
-        scripts/sql/rate_limit.sql + RPC é o caminho recomendado.
-        """
         hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         try:
-            resposta = self.cliente.table("redacoes")\
-                .select("id")\
-                .eq("usuario_id", chave)\
-                .gte("criado_em", f"{hoje}T00:00:00Z")\
-                .execute()
+            if chave == _CHAVE_LIMITE_SISTEMA:
+                resposta = self.cliente.table("redacoes")\
+                    .select("id")\
+                    .gte("criado_em", f"{hoje}T00:00:00Z")\
+                    .execute()
+            else:
+                resposta = self.cliente.table("redacoes")\
+                    .select("id")\
+                    .eq("usuario_id", chave)\
+                    .gte("criado_em", f"{hoje}T00:00:00Z")\
+                    .execute()
             contagem = len(resposta.data)
         except Exception as e:
             logger.error("Erro ao verificar limite diario (fallback) no banco: %s", e)
@@ -103,8 +101,6 @@ class DatabaseService:
             )
 
     def verificar_limite_diario(self, usuario_id: str) -> None:
-        """Garante (de forma atomica, quando a migracao SQL estiver aplicada) que o
-        usuario nao ultrapassou o limite diario de correcoes."""
         if not self.cliente:
             return
 
@@ -118,9 +114,6 @@ class DatabaseService:
             self._verificar_limite_fallback(usuario_id, MAX_CORRECOES_USUARIO_DIA)
 
     def verificar_limite_sistema(self) -> None:
-        """Garante que o sistema como um todo nao ultrapassou o limite diario global
-        de correcoes (protecao de custo, configurada via MAX_CORRECOES_SISTEMA_DIA).
-        Antes esse limite existia apenas no .env e nunca era de fato verificado."""
         if not self.cliente:
             return
 
@@ -133,7 +126,6 @@ class DatabaseService:
             self._verificar_limite_fallback(_CHAVE_LIMITE_SISTEMA, MAX_CORRECOES_SISTEMA_DIA)
 
     def buscar_historico(self, usuario_id: str, limite: int = 10) -> List[Dict[str, Any]]:
-        """Retorna as ultimas correcoes do usuario ordenadas da mais recente para a mais antiga."""
         if not self.cliente:
             return []
 

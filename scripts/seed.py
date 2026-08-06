@@ -133,6 +133,21 @@ def popular_banco_vetorial(recriar: bool = True):
         
 if __name__ == "__main__":
     import sys
-    # Uso: python scripts/seed.py --append   (para NAO limpar a colecao antes)
     recriar = "--append" not in sys.argv
+    skip_if_populated = "--skip-if-populated" in sys.argv
+
+    if skip_if_populated:
+        try:
+            _emb = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
+            _vs = Chroma(
+                collection_name=COLLECTION_NAME,
+                embedding_function=_emb,
+                persist_directory=CHROMA_PATH,
+            )
+            if len(_vs.get()["ids"]) > 0:
+                logger.info("ChromaDB ja populado. Pulando ingestao (--skip-if-populated).")
+                sys.exit(0)
+        except Exception:
+            pass
+
     popular_banco_vetorial(recriar=recriar)

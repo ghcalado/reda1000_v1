@@ -5,7 +5,7 @@ llm.py — Modulo de abstracao do LLM e orquestracao via LangGraph (Groq).
 import logging
 from typing import Annotated, TypedDict, Any
 
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -23,17 +23,7 @@ class EstadoCorrecao(TypedDict):
     json_final: str
     etapa: str
 
-PROMPT_SISTEMA: str = """
-Voce e o RedacaoAI, um assistente especialista em redacoes no formato ENEM/INEP.
-Sua tarefa e orientar o estudante sobre as cinco competencias e os criterios de correcao.
 
-REGRAS ESTABELECIDAS:
-1. Responda exclusivamente em portugues do Brasil.
-2. Seja didatico, tecnico e claro, como um professor humano experiente.
-3. Se o usuario pedir para corrigir uma redacao, peca que envie o texto e o tema.
-4. Jamais forneca respostas prontas de licao de casa; oriente o raciocinio.
-5. Evite formatacoes desnecessarias e nao utilize emoticons em suas respostas.
-"""
 
 class MotorConversacional:
     def __init__(self) -> None:
@@ -44,7 +34,7 @@ class MotorConversacional:
                 model=GROQ_MODEL,
                 temperature=LLM_TEMPERATURE,
                 api_key=GROQ_API_KEY,
-                timeout=60,       # evita requisicoes penduradas indefinidamente
+                timeout=60,
                 max_retries=2
             ).bind(response_format={"type": "json_object"})
         except ValueError as e:
